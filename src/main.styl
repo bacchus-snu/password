@@ -1,4 +1,42 @@
+html, body
+  height: 100%
+
 body
-  font-size: 30pt
-  color: #444
-  text-align: center
+  margin: 0
+  background: gray
+
+#target
+  margin: 0 auto
+  padding: 40px 40px 20px
+
+  box-sizing: border-box;
+  width: 800px
+  min-height: 100%
+
+  background: white
+
+#target.markdown-body secret
+  margin: 0
+  padding: 0
+  padding-top: 0.2em
+  padding-bottom: 0.2em
+
+  &:before, &:after
+    letter-spacing: -0.2em
+    content: '\00a0'
+
+  font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace
+  font-size: 85%
+
+  color: transparent
+  background-color: black
+  background-image: url('lock.svg')
+  background-repeat: no-repeat
+  background-position: center
+  background-size: 0.9em
+  border-radius: 3px
+
+  transition: color 0.2s, background-position 0.2s
+  &:hover
+    color: red
+    background-position: center -1.8em

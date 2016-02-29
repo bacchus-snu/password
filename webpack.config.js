@@ -23,7 +23,9 @@ module.exports = {
   plugins: process.env.NODE_ENV !== 'production' ? plugs : plugs.concat(prod),
   module: {
     loaders: [
+      { test: /\.md$/, loader: 'html!markdown' },
       { test: /\.png$/, loader: 'file' },
+      { test: /\.svg$/, loader: 'file' },
       { test: /\.css$/, loader: ExtractTextPlugin.extract('style', 'css') },
       { test: /\.styl$/, loader: ExtractTextPlugin.extract('style', 'css!stylus') },
       {
