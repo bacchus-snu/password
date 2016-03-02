@@ -10,3 +10,7 @@ open index.html
 npm start       # Do everything excep flow in watch mode
                 # Go to http://localhost:8080/webpack-dev-server/
 ```
+
+--------
+
+[AGPLv3 License](LICENSE)
