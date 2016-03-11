@@ -1,6 +1,10 @@
 // @flow
-import html from './secret.md'
+import React from 'react'
+import ReactDOM from 'react-dom'
+import marked from 'marked'
+import secret from './secret.md'
+
 import 'github-markdown-css/github-markdown.css'
 import './main.styl'
 
-document.getElementById('target').innerHTML = html;
+document.getElementById('target').innerHTML = marked(secret);
