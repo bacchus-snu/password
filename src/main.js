@@ -12,40 +12,49 @@ import './main.styl'
 
 // State
 type State = { stage: 'STANDBY'|'DECRYPTED', password: string };
-type Action = { type: 'INPUT', input: string };
+type Action = { type: 'INPUT'|'SUBMIT', input?: string };
 type Dispatch = (action: Action) => Action;
 const init: State = { stage: 'STANDBY', password: '' }
 
 const reducer = (state: State = init, action: Action): State => {
   switch (action.type) {
   case 'INPUT':
-    return {
-      stage: 'DECRYPTED',
-      password: action.input
-    };
+    // TODO: Emit warning
+    if (action.input == null) { return state; }
+
+    return { stage: 'STANDBY', password: action.input };
+  case 'SUBMIT':
+    return { stage: 'DECRYPTED', password: state.password };
   default:
     return state;
   }
 };
 
 // View
-type Props = { state: State, decrypt: (password: string) => Action };
-const View = ({ state, decrypt }: Props) => {
-  let input;
+type Props = {
+  state: State;
+  input: (password: string) => Action;
+  submit: () => Action;
+};
 
-  const onSubmit = e => {
-    e.preventDefault();
-    decrypt(input.value);
-    input.value = '';
-  };
-
+const View = ({ state, input, submit }: Props) => {
   switch (state.stage) {
   case 'STANDBY':
+    let field, button;
+
+    const invalid = !state.password;
+    const onChange = e => { input(field.value); };
+    const onSubmit = e => {
+      e.preventDefault();
+      submit();
+      field.value = '';
+    };
+
     return <div>
       <h1>비밀번호를 입력하세요</h1>
       <form onSubmit={onSubmit}>
-        <input type='password' ref={node => { input = node; }}/>
-        <button>Unlock!</button>
+        <input type='password' onChange={onChange} ref={n=>{field = n;}}/>
+        <button disabled={invalid} ref={n=>{button = n;}}>Unlock!</button>
       </form>
     </div>;
   case 'DECRYPTED':
@@ -58,9 +67,13 @@ const View = ({ state, decrypt }: Props) => {
 };
 
 // App
-const mapState = state => ({ state });
-const mapDispatch = (dispatch: Dispatch) => ({
-  decrypt: password => dispatch({ type: 'INPUT', input: password })
+type StateProps = { state: State };
+type DispatchProps = $Diff<Props, StateProps>;
+
+const mapState = (state: State): StateProps => ({ state });
+const mapDispatch = (dispatch: Dispatch): DispatchProps => ({
+  input: password => dispatch({ type: 'INPUT', input: password }),
+  submit: () => dispatch({ type: 'SUBMIT' }),
 });
 const App = connect(mapState, mapDispatch)(View);
 
