@@ -1,8 +1,11 @@
-내 마음을 여는 비밀번호
+김젼네 비밀번호
 --------
-- 하루에 `사랑`을 말하는 횟수: <secret>4회</secret>
-- 하루에 웃는 횟수: <secret>여덟번</secret>
-- 일일 키스 수: <secret>여섯번</secret>
+> 쳐들어올때 주의하세요
 
-### You are mysemysecret boy
-- The answer to life the universe and everything: <secret>42</secret>
+- 집 현관문 비밀번호: <secret>940531</secret>
+- PC 비밀번호: <secret>Hello, world!</secret>
+
+#### 마크다운
+이 비밀번호 파일은 [GitHub Flavored Markdown][gfm]으로 작성되어있습니다.
+
+[gfm]: https://guides.github.com/features/mastering-markdown/
