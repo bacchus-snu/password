@@ -8,6 +8,7 @@ import marked from 'marked'
 import loading from './loading.gif'
 import secret from './secret.md'
 
+import 'normalize.css/normalize.css'
 import 'github-markdown-css/github-markdown.css'
 import './main.styl'
 
