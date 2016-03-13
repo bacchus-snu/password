@@ -24,8 +24,7 @@ module.exports = {
   module: {
     loaders: [
       { test: /\.md$/, loader: 'raw' },
-      { test: /\.png$/, loader: 'file' },
-      { test: /\.svg$/, loader: 'file' },
+      { test: /\.(svg|png|gif)$/, loader: 'file' },
       { test: /\.css$/, loader: ExtractTextPlugin.extract('style', 'css') },
       { test: /\.styl$/, loader: ExtractTextPlugin.extract('style', 'css!stylus') },
       {

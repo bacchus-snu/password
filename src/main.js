@@ -5,7 +5,7 @@ import { createStore, compose } from 'redux'
 import { Provider, connect } from 'react-redux'
 import marked from 'marked'
 
-import loading from './loading.svg'
+import loading from './loading.gif'
 import secret from './secret.md'
 
 import 'github-markdown-css/github-markdown.css'
