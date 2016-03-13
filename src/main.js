@@ -62,15 +62,13 @@ const View = ({ state, input, submit }: Props) => {
       </button> :
       <img src={loading} alt='loading'/>;
 
-    return <div className='password'>
-      <form onSubmit={onSubmit}>
-        <input type='password'
-          placeholder='비밀번호를 입력하세요'
-          value={state.password}
-          onChange={onChange} ref={n=>{field = n;}}/>
-        <div className='button'>{btn}</div>
-      </form>
-    </div>;
+    return <form className='password' onSubmit={onSubmit}>
+      <input type='password'
+        placeholder='비밀번호를 입력하세요'
+        value={state.password}
+        onChange={onChange} ref={n=>{field = n;}}/>
+      <div className='button'>{btn}</div>
+    </form>;
   case 'DECRYPTED':
     return <div>
       <div className='markdown-body'
