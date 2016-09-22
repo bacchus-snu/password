@@ -4,6 +4,7 @@ import { render } from 'react-dom'
 import { createStore, compose } from 'redux'
 import { Provider, connect } from 'react-redux'
 import marked from 'marked'
+import 'whatwg-fetch'
 
 import loading from './loading.gif'
 import secret from './secret.md'
@@ -12,9 +13,12 @@ import 'normalize.css/normalize.css'
 import 'github-markdown-css/github-markdown.css'
 import './main.styl'
 
+type ServerError = { statusCode: number, resp: * };
+type ErrorResponse = { local?: *, remote?: ServerError };
+type Response = { error?: ErrorResponse, data?: * };
 // State
 type State = { stage: 'STANDBY'|'DECRYPTING'|'DECRYPTED', password: string };
-type Action = { type: 'INPUT'|'SUBMIT'|'RESPONSE', input?: string };
+type Action = { type: 'INPUT'|'SUBMIT'|'RESPONSE', response?: Response, input?: string };
 type Dispatch = (action: Action) => Action;
 const init: State = { stage: 'STANDBY', password: '' }
 
@@ -28,7 +32,18 @@ const reducer = (state: State = init, action: Action): State => {
   case 'SUBMIT':
     return { stage: 'DECRYPTING', password: state.password };
   case 'RESPONSE':
+    // TODO: Emit warning
+    if (action.response == null) { return state; }
     // TODO: Error handling
+    if (action.response.error != null) {
+      // TODO: Notify the user
+      console.error(action.response.error);
+      return { stage: 'STANDBY', password: state.password };
+    } else if (action.response.data == null) {
+      // TODO: Emit warning
+      return state;
+    }
+    console.log(action.response.data);
     return { stage: 'DECRYPTED', password: state.password };
   default:
     return state;
@@ -39,7 +54,7 @@ const reducer = (state: State = init, action: Action): State => {
 type Props = {
   state: State;
   input: (password: string) => Action;
-  submit: () => Action;
+  submit: (password: string) => Action;
 };
 
 const View = ({ state, input, submit }: Props) => {
@@ -53,7 +68,7 @@ const View = ({ state, input, submit }: Props) => {
     const onChange = e => { input(field.value); };
     const onSubmit = e => {
       e.preventDefault();
-      submit();
+      submit(field.value);
     };
 
     const btn = state.stage === 'STANDBY' ?
@@ -84,8 +99,37 @@ type DispatchProps = $Diff<Props, StateProps>;
 const mapState = (state: State): StateProps => ({ state });
 const mapDispatch = (dispatch: Dispatch): DispatchProps => ({
   input: password => dispatch({ type: 'INPUT', input: password }),
-  submit: () => {
-    setTimeout(() => dispatch({ type: 'RESPONSE' }), 1000);
+  submit: password => {
+    const body = `id=${encodeURIComponent('foo')}&password=${encodeURIComponent(password)}`;
+    fetch('/api/password.json', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body
+    }).then(resp => {
+      if (resp.status !== 200) {
+        dispatch({
+          type: 'RESPONSE',
+          response: {
+            error: {
+              remote: {
+                statusCode: resp.status,
+                resp
+              }
+            }
+          }
+        });
+        return;
+      }
+      return resp.json();
+    }).then(data => {
+      if (data) {
+        dispatch({ type: 'RESPONSE', response: { data } });
+      }
+    }).catch(error => {
+      dispatch({ type: 'RESPONSE', response: { error: { local: error } } });
+    });
     return dispatch({ type: 'SUBMIT' });
   },
 });
