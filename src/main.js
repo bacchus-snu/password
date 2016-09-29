@@ -16,8 +16,9 @@ import './main.styl'
 type ServerError = { statusCode: number, resp: * };
 type ErrorResponse = { local?: *, remote?: ServerError };
 type Response = { error?: ErrorResponse, data?: * };
+type Password = { id: string, description: string, password: string };
 // State
-type State = { stage: 'STANDBY'|'DECRYPTING'|'DECRYPTED', password: string };
+type State = { stage: 'STANDBY'|'DECRYPTING'|'DECRYPTED', data?: Array<Password>, password: string };
 type Action = { type: 'INPUT'|'SUBMIT'|'RESPONSE', response?: Response, input?: string };
 type Dispatch = (action: Action) => Action;
 const init: State = { stage: 'STANDBY', password: '' }
@@ -42,9 +43,9 @@ const reducer = (state: State = init, action: Action): State => {
     } else if (action.response.data == null) {
       // TODO: Emit warning
       return state;
+    } else {
+      return { stage: 'DECRYPTED', data: action.response.data, password: state.password };
     }
-    console.log(action.response.data);
-    return { stage: 'DECRYPTED', password: state.password };
   default:
     return state;
   }
@@ -85,10 +86,20 @@ const View = ({ state, input, submit }: Props) => {
       <div className='button'>{btn}</div>
     </form>;
   case 'DECRYPTED':
+    console.assert(state.data != null);
+    // Why can't flow recognize console.assert()?
+    const rawData = state.data || [];
+    const list = rawData.map(item => (
+      <li key={item.id}>
+        {`${item.description}: `}
+        <secret>{item.password}</secret>
+      </li>
+    ));
     return <div>
-      <div className='markdown-body'
-        dangerouslySetInnerHTML={{__html: marked(secret)}}/>
-    </div>
+      <div className='markdown-body'>
+        <ul>{list}</ul>
+      </div>
+    </div>;
   }
 };
 
@@ -100,7 +111,7 @@ const mapState = (state: State): StateProps => ({ state });
 const mapDispatch = (dispatch: Dispatch): DispatchProps => ({
   input: password => dispatch({ type: 'INPUT', input: password }),
   submit: password => {
-    const body = `id=${encodeURIComponent('foo')}&password=${encodeURIComponent(password)}`;
+    const body = `password=${encodeURIComponent(password)}`;
     fetch('/api/password.json', {
       method: 'POST',
       headers: {
