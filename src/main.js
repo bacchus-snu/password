@@ -13,15 +13,21 @@ import 'normalize.css/normalize.css'
 import 'github-markdown-css/github-markdown.css'
 import './main.styl'
 
-type ServerError = { statusCode: number, resp: * };
-type ErrorResponse = { local?: *, remote?: ServerError };
+type ServerError = { statusCode: number, message: string };
+type LocalError = { message: string };
+type ErrorResponse = { local?: LocalError, remote?: ServerError };
 type Response = { error?: ErrorResponse, data?: * };
 type Password = { id: string, description: string, password: string };
 // State
-type State = { stage: 'STANDBY'|'DECRYPTING'|'DECRYPTED', data?: Array<Password>, password: string };
+type State = {
+  stage: 'STANDBY'|'DECRYPTING'|'DECRYPTED',
+  data: Array<Password>,
+  error: string,
+  password: string
+};
 type Action = { type: 'INPUT'|'SUBMIT'|'RESPONSE', response?: Response, input?: string };
 type Dispatch = (action: Action) => Action;
-const init: State = { stage: 'STANDBY', password: '' }
+const init: State = { stage: 'STANDBY', data: [], error: '', password: '' }
 
 const reducer = (state: State = init, action: Action): State => {
   switch (action.type) {
@@ -29,22 +35,38 @@ const reducer = (state: State = init, action: Action): State => {
     // TODO: Emit warning
     if (action.input == null) { return state; }
 
-    return { stage: 'STANDBY', password: action.input };
+    return Object.assign({}, state, {
+      error: '',
+      password: action.input
+    });
   case 'SUBMIT':
-    return { stage: 'DECRYPTING', password: state.password };
+    return Object.assign({}, state, {
+      stage: 'DECRYPTING',
+      error: ''
+    });
   case 'RESPONSE':
-    // TODO: Emit warning
-    if (action.response == null) { return state; }
-    // TODO: Error handling
+    if (action.response == null) {
+      return Object.assign({}, state, {
+        stage: 'STANDBY',
+        error: 'response field not found. Contact admin'
+      });
+    }
     if (action.response.error != null) {
-      // TODO: Notify the user
-      console.error(action.response.error);
-      return { stage: 'STANDBY', password: state.password };
+      const errorObject = action.response.error;
+      const errorMessage =
+        errorObject.remote && errorObject.remote.message ||
+        errorObject.local && errorObject.local.message;
+      return Object.assign({}, state, {
+        stage: 'STANDBY',
+        error: errorMessage
+      });
     } else if (action.response.data == null) {
-      // TODO: Emit warning
-      return state;
+      return Object.assign({}, state, {
+        stage: 'STANDBY',
+        error: 'data field not found. Contact admin'
+      });
     } else {
-      return { stage: 'DECRYPTED', data: action.response.data, password: state.password };
+      return { stage: 'DECRYPTED', data: action.response.data, error: '', password: state.password };
     }
   default:
     return state;
@@ -72,24 +94,33 @@ const View = ({ state, input, submit }: Props) => {
       submit(field.value);
     };
 
-    const btn = state.stage === 'STANDBY' ?
+    const btn = state.stage === 'STANDBY' ? (
       <button disabled={invalid} ref={n=>{button = n;}}>
         Unlock!
-      </button> :
-      <img src={loading} alt='loading'/>;
+      </button>
+    ) : (
+      <img src={loading} alt='loading'/>
+    );
+    const err = state.error ? (
+      <div className='error'>
+        {state.error}
+      </div>
+    ) : null;
 
-    return <form className='password' onSubmit={onSubmit}>
-      <input type='password'
-        placeholder='비밀번호를 입력하세요'
-        value={state.password}
-        onChange={onChange} ref={n=>{field = n;}}/>
-      <div className='button'>{btn}</div>
-    </form>;
+    return (
+      <div className='form-container'>
+        {err}
+        <form className='password' onSubmit={onSubmit}>
+          <input type='password'
+            placeholder='비밀번호를 입력하세요'
+            value={state.password}
+            onChange={onChange} ref={n=>{field = n;}}/>
+          <div className='button'>{btn}</div>
+        </form>
+      </div>
+    );
   case 'DECRYPTED':
-    console.assert(state.data != null);
-    // Why can't flow recognize console.assert()?
-    const rawData = state.data || [];
-    const list = rawData.map(item => (
+    const list = state.data.map(item => (
       <li key={item.id}>
         {`${item.description}: `}
         <secret>{item.password}</secret>
@@ -120,16 +151,30 @@ const mapDispatch = (dispatch: Dispatch): DispatchProps => ({
       body
     }).then(resp => {
       if (resp.status !== 200) {
-        dispatch({
-          type: 'RESPONSE',
-          response: {
-            error: {
-              remote: {
-                statusCode: resp.status,
-                resp
+        resp.json().then(error => {
+          dispatch({
+            type: 'RESPONSE',
+            response: {
+              error: {
+                remote: {
+                  statusCode: resp.status,
+                  message: error.error
+                }
               }
             }
-          }
+          });
+        }).catch(() => {
+          dispatch({
+            type: 'RESPONSE',
+            response: {
+              error: {
+                remote: {
+                  statusCode: resp.status,
+                  message: 'Unknown error.'
+                }
+              }
+            }
+          });
         });
         return;
       }
@@ -139,7 +184,7 @@ const mapDispatch = (dispatch: Dispatch): DispatchProps => ({
         dispatch({ type: 'RESPONSE', response: { data } });
       }
     }).catch(error => {
-      dispatch({ type: 'RESPONSE', response: { error: { local: error } } });
+      dispatch({ type: 'RESPONSE', response: { error: { local: { message: 'Unknown error.' } } } });
     });
     return dispatch({ type: 'SUBMIT' });
   },
