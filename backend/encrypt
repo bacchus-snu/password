@@ -1,12 +1,17 @@
+#!/usr/bin/env ruby
 require 'base64'
-require_relative 'crypto.rb'
+require 'pathname'
+require_relative 'lib/crypto'
 
-if not Dir.exist?('password')
+password_dir = Pathname.new(__dir__) + 'password'
+salt_file = password_dir + 'salt'
+
+if not password_dir.directory?
   puts 'Creating directory password/'
-  Dir.mkdir('password')
+  password_dir.mkdir
 end
-salt64, crypt_nonce64, crypt_master64 = if File.exist?('password/salt')
-  File.open('password/salt') do |file|
+salt64, crypt_nonce64, crypt_master64 = if File.exist?(salt_file)
+  salt_file.open do |file|
     salt64 = file.readline
     crypt_nonce64 = file.readline
     crypt_master64 = file.readline
@@ -24,7 +29,7 @@ else
   crypt_result = CryptoHelper.encrypt(master, salt, salt64)
   crypt_master64 = crypt_result[:ciphertext64].gsub(/\n/, '')
   crypt_nonce64 = crypt_result[:nonce64].gsub(/\n/, '')
-  File.open('password/salt', 'w') do |file|
+  salt_file.open('w') do |file|
     file.puts(salt64)
     file.puts(crypt_nonce64)
     file.puts(crypt_master64)
@@ -67,7 +72,7 @@ puts ''
 
 data = CryptoHelper.encrypt(master, plain, salt64)
 
-File.open("password/#{id}.p", 'w') do |file|
+(password_dir + "#{id}.p").open('w') do |file|
   file.puts(Base64.encode64(description))
   file.puts(data[:nonce64])
   file.puts(data[:ciphertext64])
