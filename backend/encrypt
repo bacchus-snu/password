@@ -1,0 +1,80 @@
+#!/usr/bin/env ruby
+require 'base64'
+require 'pathname'
+require_relative 'lib/crypto'
+require_relative 'lib/input'
+
+# salt와 비밀번호 검증에 필요한 정보를 받아온다
+def load_auth_data(salt_file)
+  auth64 = if File.exist?(salt_file)
+    # salt 파일이 있다면 파일로부터
+    salt_file.open do |file|
+      salt64 = file.readline
+      crypt_nonce64 = file.readline
+      crypt_master64 = file.readline
+      [salt64, crypt_nonce64, crypt_master64]
+    end
+  else
+    # salt 파일이 없으면 디렉터리 초기화가 안 된 것이니
+    # 새로 마스터 비밀번호를 받아서 salt 파일을 만듦
+    puts 'Initializing the password storage for the first time.'
+    salt = CryptoHelper.generate_salt()
+    master = InputHelper.input_secret('Master password')
+    # salt를, 마스터 비밀번호에 salt를 쳐서 만든 SecretBox로 암호화
+    salt64 = Base64.encode64(salt)
+    crypt_result = CryptoHelper.encrypt(salt, master, salt)
+    crypt_master64 = crypt_result[:ciphertext64].gsub(/\n/, '')
+    crypt_nonce64 = crypt_result[:nonce64].gsub(/\n/, '')
+    salt_file.open('w') do |file|
+      file.puts(salt64)
+      file.puts(crypt_nonce64)
+      file.puts(crypt_master64)
+    end
+    [salt64, crypt_nonce64, crypt_master64]
+  end
+  auth64.map { |item64| Base64.decode64(item64) }
+end
+
+password_dir = Pathname.new(__dir__) + 'password'
+salt_file = password_dir + 'salt'
+
+if not password_dir.directory?
+  # password 디렉터리가 없으면 만든다
+  puts 'Creating directory password/'
+  password_dir.mkdir
+end
+
+salt, crypt_nonce, crypt_master = load_auth_data(salt_file)
+
+
+puts 'Will create password file in password/'
+
+# 마스터 비밀번호 검증
+master = InputHelper.input_secret('Verify master password')
+begin
+  secret_box = RbNaCl::SecretBox::new(CryptoHelper.key(master, salt))
+  dec_salt = secret_box.open(
+    crypt_nonce, crypt_master
+  )
+  # 혹시나 복호화 성공했는데 그 결과가 알고 있는 salt와 다른 경우
+  raise 'Salt does not match' unless RbNaCl::Util.verify32(
+    RbNaCl::Hash.sha256(dec_salt),
+    RbNaCl::Hash.sha256(salt)
+  )
+rescue # 복호화 실패: 마스터 비밀번호가 틀렸음
+  puts 'Password verification failed.'
+  exit 1
+end
+
+id = InputHelper.input('Password ID')
+description = InputHelper.input('Password description')
+plain = InputHelper.input_secret('Plain password to encrypt')
+
+# 암호문 생성 후 저장
+data = CryptoHelper.encrypt(plain, master, salt)
+
+(password_dir + "#{id}.p").open('w') do |file|
+  file.puts(Base64.encode64(description))
+  file.puts(data[:nonce64])
+  file.puts(data[:ciphertext64])
+end
