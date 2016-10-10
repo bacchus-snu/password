@@ -9,10 +9,17 @@ require_relative 'lib/crypto'
 password_dir = Pathname.new(__dir__) + 'password'
 salt_file = password_dir + 'salt'
 
+# 비밀번호에 쓸 salt 데이터 로드
 salt = salt_file.open do |file|
   Base64.decode64(file.readline)
 end
 
+# password 디렉터리 안의 비밀번호 파일을 읽고, 암호화된 비밀번호 목록을 가져온다
+# *.p 파일이 비밀번호 파일
+# - .p 제외한 파일 이름이 id
+# - 첫째 줄: base64 인코딩된 평문 설명문
+# - 둘째 줄: base64 인코딩된 암호화에 쓴 nonce
+# - 셋째 줄: base64 인코딩된 암호문
 def passwordList(password_dir)
   Dir[password_dir + "*.p"].collect do |item|
     data = File.open(item) do |file|
@@ -30,15 +37,18 @@ def passwordList(password_dir)
   end
 end
 
+# POST /password.json
 post '/password.json' do
   passwords = passwordList(password_dir)
 
+  # password와 salt로부터 SecretBox를 만듦
   password = params['password']
   secret_box = RbNaCl::SecretBox::new(CryptoHelper.key(password, salt))
 
   # TODO: Optional filtering feature
   filtered_passwords = passwords
   begin
+    # 비밀번호 목록을 위에서 만든 secret_box로 복호화
     response = filtered_passwords.collect do |item|
       {
         :id => item[:id],
@@ -46,7 +56,7 @@ post '/password.json' do
         :password => secret_box.open(item[:nonce], item[:ciphertext])
       }
     end
-  rescue
+  rescue # 복호화 실패: 제시된 비밀번호가 잘못되었을 것
     status 401
     response = {
       :error => "Authentication failed."

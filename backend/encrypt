@@ -7,10 +7,13 @@ password_dir = Pathname.new(__dir__) + 'password'
 salt_file = password_dir + 'salt'
 
 if not password_dir.directory?
+  # password 디렉터리가 없으면 만든다
   puts 'Creating directory password/'
   password_dir.mkdir
 end
 salt64, crypt_nonce64, crypt_master64 = if File.exist?(salt_file)
+  # salt 파일이 있다면 파일로부터
+  # salt와 마스터 비밀번호 검증에 필요한 정보를 받아옴
   salt_file.open do |file|
     salt64 = file.readline
     crypt_nonce64 = file.readline
@@ -18,6 +21,8 @@ salt64, crypt_nonce64, crypt_master64 = if File.exist?(salt_file)
     [salt64, crypt_nonce64, crypt_master64]
   end
 else
+  # salt 파일이 없으면 디렉터리 초기화가 안 된 것이니
+  # 새로 마스터 비밀번호를 받아서 salt 파일을 만듦
   puts 'Initializing the password storage for the first time.'
   salt = CryptoHelper.generate_salt()
   print 'Master password: '
@@ -25,6 +30,7 @@ else
   master = gets.chomp
   `stty echo`
   puts ''
+  # salt를, 마스터 비밀번호에 salt를 쳐서 만든 SecretBox로 암호화
   salt64 = Base64.encode64(salt)
   crypt_result = CryptoHelper.encrypt(master, salt, salt64)
   crypt_master64 = crypt_result[:ciphertext64].gsub(/\n/, '')
@@ -38,12 +44,12 @@ else
 end
 puts 'Will create password file in password/'
 
+# 마스터 비밀번호 검증
 print 'Verify master password: '
 `stty -echo`
 master = gets.chomp
 `stty echo`
 puts ''
-
 begin
   salt = Base64.decode64(salt64)
   secret_box = RbNaCl::SecretBox::new(CryptoHelper.key(master, salt))
@@ -51,11 +57,12 @@ begin
     Base64.decode64(crypt_nonce64),
     Base64.decode64(crypt_master64)
   )
+  # 혹시나 복호화 성공했는데 그 결과가 알고 있는 salt와 다른 경우
   raise 'Salt does not match' unless RbNaCl::Util.verify32(
     RbNaCl::Hash.sha256(dec_salt),
     RbNaCl::Hash.sha256(salt)
   )
-rescue
+rescue # 복호화 실패: 마스터 비밀번호가 틀렸음
   puts 'Password verification failed.'
   exit 1
 end
@@ -70,6 +77,7 @@ plain = gets.chomp
 `stty echo`
 puts ''
 
+# 암호문 생성 후 저장
 data = CryptoHelper.encrypt(master, plain, salt64)
 
 (password_dir + "#{id}.p").open('w') do |file|
