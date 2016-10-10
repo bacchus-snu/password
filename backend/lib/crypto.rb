@@ -16,9 +16,8 @@ module CryptoHelper
   def CryptoHelper.generate_salt()
     RbNaCl::Random.random_bytes(PasswordHash::SCrypt::SALTBYTES)
   end
-  # 평문, 비밀번호, base64 인코딩된 salt로 평문을 암호화한다
-  def CryptoHelper.encrypt(password, plain, salt64)
-    salt = Base64.decode64(salt64)
+  # 평문, 비밀번호, salt로 평문을 암호화한다
+  def CryptoHelper.encrypt(plain, password, salt)
     digest = CryptoHelper.key(password, salt)
     secret_box = SecretBox.new(digest)
     nonce = RbNaCl::Random.random_bytes(secret_box.nonce_bytes)
